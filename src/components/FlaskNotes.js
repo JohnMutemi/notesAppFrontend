@@ -1,12 +1,12 @@
 import React from 'react';
 import Notes from './Notes';
 
-const HtmlNotes = () => {
+const flaskNotes = () => {
   return (
     <div className="html-notes-page">
-      <Notes module="HTML" />
+      <Notes module="Flask" />
     </div>
   );
 };
 
-export default HtmlNotes;
+export default flaskNotes;

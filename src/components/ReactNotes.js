@@ -1,12 +1,12 @@
 import React from 'react';
 import Notes from './Notes';
 
-const HtmlNotes = () => {
+const reactNotes = () => {
   return (
     <div className="html-notes-page">
-      <Notes module="HTML" />
+      <Notes module="React" />
     </div>
   );
 };
 
-export default HtmlNotes;
+export default reactNotes;
