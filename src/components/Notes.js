@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import ReactQuill from 'react-quill'; // Import ReactQuill for formattable content
+import 'react-quill/dist/quill.snow.css'; // Import default styles for ReactQuill
+import DOMPurify from 'dompurify';
 
 const Notes = ({ module }) => {
   const [notes, setNotes] = useState([]);
@@ -11,6 +14,11 @@ const Notes = ({ module }) => {
   const [commentsVisible, setCommentsVisible] = useState({});
   const [addCommentVisible, setAddCommentVisible] = useState({});
   const [newComments, setNewComments] = useState({});
+  const [subtopics, setSubtopics] = useState('');
+  const [editNoteId, setEditNoteId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editSubtopics, setEditSubtopics] = useState('');
 
   const notesPerPage = 4;
   const apiUrl = `http://127.0.0.1:5555/notes/${module}`;
@@ -31,10 +39,7 @@ const Notes = ({ module }) => {
                 : Promise.reject('Failed to fetch comments')
             )
             .then((commentsData) => {
-              setComments((prev) => ({
-                ...prev,
-                [note.id]: commentsData,
-              }));
+              setComments((prev) => ({ ...prev, [note.id]: commentsData }));
             })
             .catch((error) => console.error('Error fetching comments:', error));
         });
@@ -44,7 +49,7 @@ const Notes = ({ module }) => {
 
   const handleAddNote = (e) => {
     e.preventDefault();
-    const newNote = { title, content };
+    const newNote = { title, content, subtopics };
 
     fetch(apiUrl, {
       method: 'POST',
@@ -58,9 +63,43 @@ const Notes = ({ module }) => {
         setNotes((prevNotes) => [...prevNotes, createdNote]);
         setTitle('');
         setContent('');
+        setSubtopics('');
         setShowAddNoteForm(false);
       })
       .catch((error) => console.error('Error adding note:', error));
+  };
+
+  const handleEditNote = (noteId) => {
+    const noteToEdit = notes.find((note) => note.id === noteId);
+    if (noteToEdit) {
+      setEditNoteId(noteId);
+      setEditTitle(noteToEdit.title);
+      setEditContent(noteToEdit.content);
+      setEditSubtopics(noteToEdit.subtopics);
+    }
+  };
+
+  const handleUpdateNote = (e, noteId) => {
+    e.preventDefault();
+    const updatedNote = {
+      title: editTitle,
+      content: editContent,
+      subtopics: editSubtopics,
+    };
+
+    fetch(`http://127.0.0.1:5555/notes/${module}/${noteId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedNote),
+    })
+      .then((response) => response.json())
+      .then((updatedNoteData) => {
+        setNotes((prevNotes) =>
+          prevNotes.map((note) => (note.id === noteId ? updatedNoteData : note))
+        );
+        setEditNoteId(null);
+      })
+      .catch((error) => console.error('Error updating note:', error));
   };
 
   const indexOfLastNote = currentPage * notesPerPage;
@@ -91,9 +130,7 @@ const Notes = ({ module }) => {
 
     fetch(`http://127.0.0.1:5555/notes/${noteId}/comments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newComment),
     })
       .then((response) => {
@@ -119,6 +156,7 @@ const Notes = ({ module }) => {
           className="text-secondary underline mb-6 focus:outline-none">
           {showAddNoteForm ? 'Cancel Add Note' : 'Add Note'}
         </button>
+
         {showAddNoteForm && (
           <form
             onSubmit={handleAddNote}
@@ -131,12 +169,32 @@ const Notes = ({ module }) => {
               className="w-full p-2 mb-4 border border-light rounded focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
-            <textarea
-              placeholder="Content"
+            <ReactQuill
+              value={subtopics}
+              onChange={setSubtopics}
+              className="w-full mb-4 border border-light rounded bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Add subtopics (optional)"
+              modules={{
+                toolbar: [
+                  ['bold', 'italic', 'underline'],
+                  [{ list: 'ordered' }, { list: 'bullet' }],
+                  ['link'],
+                ],
+              }}
+              formats={[
+                'bold',
+                'italic',
+                'underline',
+                'list',
+                'bullet',
+                'link',
+              ]}
+            />
+            <ReactQuill
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full p-2 mb-4 border border-light rounded focus:outline-none focus:ring-2 focus:ring-primary"
-              required
+              onChange={setContent}
+              className="border border-gray-300 rounded-lg bg-gray-50 focus:ring-primary focus:border-primary min-h-[150px] p-4"
+              placeholder="Content"
             />
             <button
               type="submit"
@@ -145,95 +203,139 @@ const Notes = ({ module }) => {
             </button>
           </form>
         )}
+
         <ul className="mt-6 space-y-4">
           {currentNotes.map((note) => (
             <li key={note.id} className="bg-light p-4 rounded shadow">
-              <h3 className="text-xl font-semibold text-primary">
-                <button
-                  onClick={() => toggleContentVisibility(note.id)}
-                  className="hover:underline focus:outline-none">
-                  {note.title}
-                </button>
-              </h3>
-              {expandedNoteId === note.id && (
-                <div className="mt-2">
-                  <p className="text-textDark">{note.content}</p>
-                  <div className="mt-4">
+              {editNoteId === note.id ? (
+                <form onSubmit={(e) => handleUpdateNote(e, note.id)}>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full p-2 mb-4 border rounded"
+                  />
+                  <ReactQuill
+                    value={editSubtopics}
+                    onChange={setEditSubtopics}
+                    className="w-full mb-4 border rounded"
+                  />
+                  <ReactQuill
+                    value={editContent}
+                    onChange={setEditContent}
+                    className="w-full border rounded"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-buttonPrimary text-white px-4 py-2 rounded hover:bg-primary mt-2">
+                    Save Changes
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <h3 className="text-xl font-semibold text-primary">
                     <button
-                      onClick={() => toggleCommentsVisibility(note.id)}
-                      className="text-secondary underline mr-4 focus:outline-none">
-                      {commentsVisible[note.id]
-                        ? 'Hide Comments'
-                        : 'View Past Comments'}
+                      onClick={() => toggleContentVisibility(note.id)}
+                      className="hover:underline focus:outline-none">
+                      {note.title}
                     </button>
-                    <button
-                      onClick={() => toggleAddCommentVisibility(note.id)}
-                      className="text-secondary underline focus:outline-none">
-                      {addCommentVisible[note.id]
-                        ? 'Cancel Add Comment'
-                        : 'Add a Comment'}
-                    </button>
-                  </div>
-                  {commentsVisible[note.id] && (
-                    <div className="mt-4">
-                      <h4 className="text-lg font-bold text-secondary">
-                        Comments
-                      </h4>
-                      {comments[note.id]?.length > 0 ? (
-                        <ul className="mt-2 space-y-2">
-                          {comments[note.id].map((comment) => (
-                            <li
-                              key={comment.id}
-                              className="bg-backgroundDark p-2 rounded text-white">
-                              <p>{comment.content}</p>
-                              <span className="text-sm text-gray-400">
-                                {new Date(comment.timestamp).toLocaleString()}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="mt-2 text-textDark">No comments yet.</p>
+                  </h3>
+                  {expandedNoteId === note.id && (
+                    <div className="mt-2">
+                      {note.subtopics && (
+                        <div className="mt-2 text-sm text-gray-500">
+                          Subtopic: {note.subtopics}
+                        </div>
+                      )}
+                      <div
+                        className="mt-2 text-textDark"
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(note.content),
+                        }}
+                      />
+                      <div className="mt-4">
+                        <button
+                          onClick={() => handleEditNote(note.id)}
+                          className="text-secondary underline mt-2 focus:outline-none">
+                          Edit Note
+                        </button>
+                        <button
+                          onClick={() => toggleCommentsVisibility(note.id)}
+                          className="text-secondary underline ml-4 focus:outline-none">
+                          {commentsVisible[note.id]
+                            ? 'Hide Comments'
+                            : 'View Comments'}
+                        </button>
+                        <button
+                          onClick={() => toggleAddCommentVisibility(note.id)}
+                          className="text-secondary underline ml-4 focus:outline-none">
+                          {addCommentVisible[note.id]
+                            ? 'Cancel Add Comment'
+                            : 'Add a Comment'}
+                        </button>
+                      </div>
+
+                      {commentsVisible[note.id] && (
+                        <div className="mt-4">
+                          <h4 className="text-lg font-bold text-secondary">
+                            Comments
+                          </h4>
+                          {comments[note.id]?.length > 0 ? (
+                            <ul className="mt-2 space-y-2">
+                              {comments[note.id].map((comment) => (
+                                <li
+                                  key={comment.id}
+                                  className="text-sm text-gray-600">
+                                  {comment.content}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p>No comments yet.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {addCommentVisible[note.id] && (
+                        <form
+                          onSubmit={(e) => handleAddComment(e, note.id)}
+                          className="mt-4">
+                          <textarea
+                            value={newComments[note.id] || ''}
+                            onChange={(e) =>
+                              setNewComments((prev) => ({
+                                ...prev,
+                                [note.id]: e.target.value,
+                              }))
+                            }
+                            className="w-full p-2 border border-light rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="Add a comment"
+                          />
+                          <button
+                            type="submit"
+                            className="bg-buttonPrimary text-white px-4 py-2 rounded hover:bg-primary mt-2">
+                            Submit Comment
+                          </button>
+                        </form>
                       )}
                     </div>
                   )}
-                  {addCommentVisible[note.id] && (
-                    <form
-                      onSubmit={(e) => handleAddComment(e, note.id)}
-                      className="mt-4">
-                      <textarea
-                        value={newComments[note.id] || ''}
-                        onChange={(e) =>
-                          setNewComments((prev) => ({
-                            ...prev,
-                            [note.id]: e.target.value,
-                          }))
-                        }
-                        className="w-full p-2 border border-light rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Add your comment"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-buttonPrimary text-white px-4 py-2 rounded hover:bg-primary mt-2">
-                        Submit Comment
-                      </button>
-                    </form>
-                  )}
-                </div>
+                </>
               )}
             </li>
           ))}
         </ul>
-        <div className="mt-6 flex justify-between">
+
+        <div className="flex justify-between mt-6">
           <button
             onClick={handlePreviousPage}
-            className="bg-buttonSecondary text-white px-4 py-2 rounded hover:bg-secondary"
+            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary"
             disabled={currentPage === 1}>
             Previous
           </button>
           <button
             onClick={handleNextPage}
-            className="bg-buttonSecondary text-white px-4 py-2 rounded hover:bg-secondary"
+            className="bg-primary text-white px-4 py-2 rounded hover:bg-primary"
             disabled={currentPage === totalPages}>
             Next
           </button>
