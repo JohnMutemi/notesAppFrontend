@@ -21,7 +21,7 @@ const Notes = ({ module }) => {
   const [editSubtopics, setEditSubtopics] = useState('');
 
   const notesPerPage = 4;
-  const apiUrl = `http://127.0.0.1:5555/notes/${module}`;
+  const apiUrl = `https://notes-app-backend-y6a7.onrender.com/notes/${module}`;
 
   // Fetch notes and comments on component mount
   useEffect(() => {
@@ -32,7 +32,9 @@ const Notes = ({ module }) => {
       .then((data) => {
         setNotes(data);
         data.forEach((note) => {
-          fetch(`http://127.0.0.1:5555/notes/${note.id}/comments`)
+          fetch(
+            `https://notes-app-backend-y6a7.onrender.com/notes/${note.id}/comments`
+          )
             .then((response) =>
               response.ok
                 ? response.json()
@@ -87,11 +89,14 @@ const Notes = ({ module }) => {
       subtopics: editSubtopics,
     };
 
-    fetch(`http://127.0.0.1:5555/notes/${module}/${noteId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedNote),
-    })
+    fetch(
+      `https://notes-app-backend-y6a7.onrender.com/notes/${module}/${noteId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedNote),
+      }
+    )
       .then((response) => response.json())
       .then((updatedNoteData) => {
         setNotes((prevNotes) =>
@@ -128,11 +133,14 @@ const Notes = ({ module }) => {
 
     const newComment = { content: commentContent };
 
-    fetch(`http://127.0.0.1:5555/notes/${noteId}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newComment),
-    })
+    fetch(
+      `https://notes-app-backend-y6a7.onrender.com/notes/${noteId}/comments`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newComment),
+      }
+    )
       .then((response) => {
         if (!response.ok) throw new Error('Failed to add comment');
         return response.json();
